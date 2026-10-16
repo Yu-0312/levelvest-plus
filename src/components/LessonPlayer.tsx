@@ -11,10 +11,43 @@ import {
   Zap,
   Gem,
 } from 'lucide-react';
-import { Lesson, Section } from '../types';
+import { Lesson, Section, QuizQuestion } from '../types';
 import { Mascot } from './Mascot';
+import { StockChart } from './StockChart';
 import type { TutorContext } from './AITutor';
 import { sound } from '../utils/audio';
+
+/** 選擇型題（mcq/chart）vs 輸入型題（input） */
+const isInputQ = (q: QuizQuestion): boolean => q.type === 'input';
+
+/**
+ * input 題答案正規化：全形→半形、去千分位逗號／空白／單位後綴，
+ * 讓「600,000」「60萬」…等寫法都能對到同一答案。
+ */
+export function normalizeAnswer(raw: string): string {
+  let s = raw.trim();
+  // 全形字母數字與常用符號 → 半形
+  s = s
+    .replace(/[！-～]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, ' ')
+    .replace(/[,\s]/g, '');
+  return s.toLowerCase();
+}
+
+/** 判定 input 題是否答對：優先字串比對 accept，其餘走數值 ±tolerance */
+export function isAnswerCorrect(q: QuizQuestion, raw: string): boolean {
+  const user = normalizeAnswer(raw);
+  if (!user) return false;
+  const accepted = q.accept ?? [];
+  if (accepted.some((a) => normalizeAnswer(a) === user)) return true;
+  const userNum = Number(user);
+  if (!Number.isFinite(userNum)) return false;
+  return accepted.some((a) => {
+    const aNum = Number(normalizeAnswer(a));
+    if (!Number.isFinite(aNum)) return false;
+    return Math.abs(aNum - userNum) <= (q.tolerance ?? 0);
+  });
+}
 
 interface LessonPlayerProps {
   section: Section;
@@ -43,6 +76,8 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
   const [phase, setPhase] = useState<Phase>('intro');
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
+  /** input 題的學員輸入 */
+  const [inputText, setInputText] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
@@ -69,6 +104,7 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
     setPhase('intro');
     setQIndex(0);
     setSelected(null);
+    setInputText('');
     setSubmitted(false);
     setCorrectCount(0);
     setWrongCount(0);
@@ -79,8 +115,12 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
   const questions = lesson.questions;
   const current = questions[qIndex];
   const total = questions.length;
+  const inputMode = isInputQ(current);
   const stars =
     wrongCount === 0 ? 3 : wrongCount <= 1 ? 2 : wrongCount <= 2 ? 1 : 0;
+
+  /** 目前這題的作答是否可送出 */
+  const canSubmit = inputMode ? inputText.trim().length > 0 : selected !== null;
 
   const handleSelect = (idx: number) => {
     if (submitted) return;
@@ -89,9 +129,12 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
   };
 
   const handleSubmit = () => {
-    if (selected === null || submitted) return;
+    if (!canSubmit || submitted) return;
     setSubmitted(true);
-    if (selected === current.answer) {
+    const correct = inputMode
+      ? isAnswerCorrect(current, inputText)
+      : selected === current.answer;
+    if (correct) {
       sound.playSuccess();
       setCorrectCount((c) => c + 1);
       if (lesson.kind === 'calc' || lesson.kind === 'data') {
@@ -109,6 +152,7 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
     if (qIndex + 1 < total) {
       setQIndex((i) => i + 1);
       setSelected(null);
+      setInputText('');
       setSubmitted(false);
     } else {
       sound.playSuccess();
@@ -239,9 +283,69 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
             {/* QUIZ */}
             {phase === 'quiz' && current && (
               <div>
+                {/* chart 題：題幹上方附 K 線圖（看圖決定買賣/判讀形態） */}
+                {current.chart && (
+                  <div className="mb-4">
+                    <StockChart spec={current.chart} label={`題目附圖：${current.q}`} />
+                  </div>
+                )}
+
                 <p className="text-sm font-black text-slate-800 leading-relaxed mb-4">
+                  {inputMode && (
+                    <span className="inline-block mr-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] align-middle">
+                      ✏️ 計算題 · 請輸入答案
+                    </span>
+                  )}
                   {current.q}
                 </p>
+
+                {/* input 題：數字/文字輸入作答 */}
+                {inputMode && (
+                  <div className="rounded-2xl border-2 border-b-4 border-amber-200 bg-amber-50/60 p-4">
+                    <label className="block text-xs font-black text-amber-700 mb-2" htmlFor="lesson-answer-input">
+                      你的答案
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="lesson-answer-input"
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !submitted) handleSubmit();
+                        }}
+                        disabled={submitted}
+                        inputMode="decimal"
+                        autoComplete="off"
+                        placeholder={current.hint ?? '輸入數字或答案'}
+                        className={`flex-1 min-w-0 px-3.5 py-3 rounded-xl border-2 bg-white font-black text-base text-slate-800 outline-none transition-all disabled:cursor-default ${
+                          submitted
+                            ? isAnswerCorrect(current, inputText)
+                              ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
+                              : 'border-rose-400 bg-rose-50 text-rose-800'
+                            : 'border-amber-300 focus:border-amber-500'
+                        }`}
+                      />
+                      {current.unit && (
+                        <span className="text-sm font-black text-slate-500 shrink-0">{current.unit}</span>
+                      )}
+                    </div>
+                    {current.hint && !submitted && (
+                      <p className="text-[11px] font-bold text-amber-600 mt-2">💡 {current.hint}</p>
+                    )}
+                    {submitted && (
+                      <p className="text-[11px] font-black mt-2 text-slate-600">
+                        正確答案：
+                        <span className="text-emerald-700">
+                          {current.accept?.[0]}
+                          {current.unit ?? ''}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 選擇型題（mcq / chart）：選項按鈕 */}
+                {!inputMode && (
                 <div className="space-y-2.5">
                   {current.choices.map((choice, idx) => {
                     const isCorrect = idx === current.answer;
@@ -290,6 +394,7 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
                     );
                   })}
                 </div>
+                )}
 
                 {/* Explanation */}
                 <AnimatePresence>
@@ -298,21 +403,39 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       className={`mt-4 p-3.5 rounded-2xl border-2 ${
-                        selected === current.answer
+                        inputMode
+                          ? isAnswerCorrect(current, inputText)
+                            ? 'border-emerald-200 bg-emerald-50'
+                            : 'border-rose-200 bg-rose-50'
+                          : selected === current.answer
                           ? 'border-emerald-200 bg-emerald-50'
                           : 'border-rose-200 bg-rose-50'
                       }`}
                     >
                       <p
                         className={`text-xs font-black mb-1 ${
-                          selected === current.answer ? 'text-emerald-700' : 'text-rose-700'
+                          inputMode
+                            ? isAnswerCorrect(current, inputText)
+                              ? 'text-emerald-700'
+                              : 'text-rose-700'
+                            : selected === current.answer
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
                         }`}
                       >
-                        {selected === current.answer ? '答對了！' : '再想一下～'}
+                        {inputMode
+                          ? isAnswerCorrect(current, inputText)
+                            ? '答對了！'
+                            : '算錯了～'
+                          : selected === current.answer
+                          ? '答對了！'
+                          : '再想一下～'}
                       </p>
                       <p className="text-sm text-slate-700 leading-relaxed">{current.explain}</p>
 
-                      {selected !== null && selected !== current.answer && (
+                      {submitted &&
+                        ((inputMode && !isAnswerCorrect(current, inputText)) ||
+                          (!inputMode && selected !== null && selected !== current.answer)) && (
                         <button
                           type="button"
                           onClick={() => {
@@ -322,8 +445,12 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
                               lessonTitle: lesson.title,
                               question: current.q,
                               choices: current.choices,
-                              selectedChoice: current.choices[selected] ?? '',
-                              correctChoice: current.choices[current.answer] ?? '',
+                              selectedChoice: inputMode
+                                ? `學員輸入：${inputText}`
+                                : current.choices[selected ?? -1] ?? '',
+                              correctChoice: inputMode
+                                ? `正確答案：${current.accept?.join(' / ') ?? ''}`
+                                : current.choices[current.answer] ?? '',
                               explain: current.explain,
                             });
                           }}
@@ -339,9 +466,9 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
 
                 <button
                   onClick={submitted ? handleNextQuestion : handleSubmit}
-                  disabled={selected === null}
+                  disabled={!canSubmit}
                   className={`w-full mt-5 py-3.5 font-black text-base rounded-2xl transition-all ${
-                    selected === null
+                    !canSubmit
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       : submitted
                       ? 'bg-sky-500 hover:bg-sky-600 text-white border-b-4 border-sky-700 active:border-b-0 active:translate-y-1'

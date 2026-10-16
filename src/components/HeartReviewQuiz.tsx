@@ -11,6 +11,7 @@ import {
   Gem,
 } from 'lucide-react';
 import { ReviewQuestion } from '../types';
+import { StockChart } from './StockChart';
 import { Mascot } from './Mascot';
 import { sound } from '../utils/audio';
 
@@ -309,6 +310,17 @@ export const HeartReviewQuiz: React.FC<HeartReviewQuizProps> = ({
                     </span>
                   )}
                 </div>
+
+                {/* chart 題：複習時也重現 K 線圖 */}
+                {current.question.chart && (
+                  <div className="mb-4">
+                    <StockChart
+                      spec={current.question.chart}
+                      label={`複習附圖：${current.question.q}`}
+                      height={150}
+                    />
+                  </div>
+                )}
 
                 <p className="text-sm font-black text-slate-800 leading-relaxed mb-4">
                   {current.question.q}

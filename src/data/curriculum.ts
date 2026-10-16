@@ -1,8 +1,16 @@
 import { Section } from '../types';
-import { sectionsPart1 } from './curriculumPart1';
-import { sectionsPart2 } from './curriculumPart2';
+import { s1 } from './lessons/s1';
+import { s2 } from './lessons/s2';
+import { s3 } from './lessons/s3';
+import { s4 } from './lessons/s4';
+import { s5 } from './lessons/s5';
+import { s6 } from './lessons/s6';
+import { s7 } from './lessons/s7';
+import { s8 } from './lessons/s8';
+import { s9 } from './lessons/s9';
+import { s10 } from './lessons/s10';
 
-export const curriculum: Section[] = [...sectionsPart1, ...sectionsPart2];
+export const curriculum: Section[] = [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10];
 
 export const totalLessons = curriculum.reduce((sum, s) => sum + s.lessons.length, 0);
 

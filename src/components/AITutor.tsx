@@ -107,8 +107,9 @@ function buildSystemInstruction(c: TutorContext): string {
     '',
     `【學生所屬章節】${c.sectionTitle}（關卡：${c.lessonTitle}）`,
     `【題目】${c.question}`,
-    `【選項】\n${choices}`,
-    `【學生選答】${c.selectedChoice}`,
+    // 計算輸入題沒有選項，此時 selectedChoice/correctChoice 會是「學員輸入：…」格式
+    ...(choices ? [`【選項】\n${choices}`] : []),
+    `【學生作答】${c.selectedChoice}`,
     `【正確答案】${c.correctChoice}`,
     `【課本解析】${c.explain}`,
   ].join('\n');

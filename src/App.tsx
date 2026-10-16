@@ -618,6 +618,8 @@ export default function App() {
       if (!unlockedSections.includes(section.id)) continue;
       for (const lesson of section.lessons) {
         lesson.questions.forEach((question, i) => {
+          // 計算輸入題不進選擇題型的複習池（HeartReviewQuiz 只支援選項作答）
+          if (question.type === 'input') return;
           const key = `${lesson.id}#${i}`;
           pool.push({
             key,

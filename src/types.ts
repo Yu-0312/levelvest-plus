@@ -56,11 +56,58 @@ export type QuestionKind =
   | 'dialogue'
   | 'review';
 
+/**
+ * 題型：
+ * - mcq   選擇題（預設，舊資料沒寫 type 即視為 mcq）
+ * - input 計算輸入題：學員直接輸入數字／答案字串，系統比對（真正的實作計算）
+ * - chart 圖表判讀題：題幹附 K 線圖，作答方式仍是選擇（看圖決定買賣／判斷形態）
+ */
+export type QuestionType = 'mcq' | 'input' | 'chart';
+
+/** K 線圖型（由 seed 決定論式生成，同一 seed 必定長一樣） */
+export type ChartPattern =
+  | 'uptrend'
+  | 'downtrend'
+  | 'range'
+  | 'breakout'
+  | 'false-breakout'
+  | 'double-top'
+  | 'head-shoulders'
+  | 'pullback'
+  | 'vol-spike';
+
+/** 題幹附圖規格 */
+export interface ChartSpec {
+  /** 決定論式生成的種子 */
+  seed: number;
+  /** 圖型 */
+  pattern: ChartPattern;
+  /** K 棒數（預設 60） */
+  bars?: number;
+  /** 起始價（預設 500） */
+  startPrice?: number;
+  /** 疊加均線週期（如 20 → 20MA） */
+  ma?: number;
+}
+
 export interface QuizQuestion {
   q: string;
   choices: string[];
+  /** mcq/chart：正確選項索引；input：未使用（設 -1） */
   answer: number;
   explain: string;
+  /** 缺省視為 'mcq'（相容舊題庫） */
+  type?: QuestionType;
+  /** input 題：可接受答案（比對前會正規化：全形轉半形、去逗號空白） */
+  accept?: string[];
+  /** input 題：數值容差（絕對值；0 則要求完全相符） */
+  tolerance?: number;
+  /** input 題：輸入框右側單位（如「元」「股」「天」） */
+  unit?: string;
+  /** input 題：給學員的提示 */
+  hint?: string;
+  /** chart 題：K 線圖 */
+  chart?: ChartSpec;
 }
 
 export interface Lesson {
