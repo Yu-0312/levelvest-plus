@@ -1,20 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import confetti from 'canvas-confetti';
 import { Mascot } from './Mascot';
 import {
   Trophy,
   Clock,
   Flame,
-  TrendingUp,
   ShieldCheck,
   Coffee,
-  Heart,
   Sparkles,
-  Award,
   ChevronUp,
-  ArrowUpRight,
-  Info,
 } from 'lucide-react';
 import { LeaderboardStudent } from '../types';
 import { sound } from '../utils/audio';
@@ -35,8 +29,8 @@ const Avatar: React.FC<{ avatar: string; px: number }> = ({ avatar, px }) =>
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({ students: initialStudents }) => {
   const [students, setStudents] = useState<LeaderboardStudent[]>(initialStudents);
-  const [cheeredStudentId, setCheeredStudentId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // 讚賞動畫狀態：只用 setter 觸發 1.2 秒閃爍，不需要讀取值
+  const [, setCheeredStudentId] = useState<string | null>(null);  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // 本週結算倒數：以固定 deadline 計算剩餘時間（不會再出現分鐘歸零跳回 59 的倒流 bug）
   const [deadline] = useState(() => Date.now() + ((2 * 24 + 14) * 3600 + 32 * 60 + 45) * 1000);

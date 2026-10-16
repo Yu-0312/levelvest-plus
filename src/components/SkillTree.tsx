@@ -14,6 +14,7 @@ import {
   Skull,
   Crown,
   FastForward,
+  ClipboardList,
 } from 'lucide-react';
 import { Section, Lesson, LessonProgress, QuestionKind } from '../types';
 import { Mascot } from './Mascot';
@@ -53,6 +54,8 @@ const kindIcon = (kind: QuestionKind, isBoss: boolean, status: 'completed' | 'ac
       return <TrendingUp className="w-7 h-7 text-white" />;
     case 'simulate':
       return <Target className="w-7 h-7 text-white" />;
+    case 'order':
+      return <ClipboardList className="w-7 h-7 text-white" />;
     case 'detect':
       return <Shield className="w-7 h-7 text-white" />;
     case 'review':

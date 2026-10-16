@@ -303,7 +303,6 @@ export const LearningDashboard: React.FC = () => {
       }
       setSnapshots(next);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [daily]);
 
   /* ── 章節完成率 ── */

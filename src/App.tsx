@@ -109,7 +109,6 @@ function today(): string {
 function normalizeDaily(saved: DailyState | undefined): DailyState {
   const fresh: DailyState = {
     date: today(),
-    freezeDays: typeof saved?.freezeDays === 'number' ? saved.freezeDays : initialDaily.freezeDays,
     tasks: initialDaily.tasks.map((t) => ({ ...t })),
   };
   if (!saved || !Array.isArray(saved.tasks) || saved.date !== fresh.date) return fresh;
@@ -240,7 +239,7 @@ export default function App() {
     sound.enabled = stats.soundEnabled;
   }, [stats.soundEnabled]);
 
-  // 三項每日任務全清 → 連勝 +1（每天只記一次），並推進「紀律日連勝」勳章
+  // 四項每日任務全清 → 連勝 +1（每天只記一次），並推進「紀律日連勝」勳章
   useEffect(() => {
     const allDone = daily.tasks.length > 0 && daily.tasks.every((t) => t.done >= t.target);
     if (!allDone) return;

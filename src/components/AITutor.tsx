@@ -184,7 +184,7 @@ export const AITutor: React.FC<AITutorProps> = ({ isOpen, context, onClose }) =>
   useEffect(() => {
     if (!isOpen || !key) return;
     setSession((prev) =>
-      prev.key === key ? prev : { key, messages: [welcomeMessage(!hasApiKey())] }
+      prev.key === key ? prev : { key, messages: [welcomeMessage(offline)] }
     );
   }, [isOpen, key]);
 

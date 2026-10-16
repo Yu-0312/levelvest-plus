@@ -502,6 +502,11 @@ export const WeeklyNewsChallenge: React.FC<WeeklyNewsChallengeProps> = ({ risk, 
 
   const handleNext = () => {
     sound.playClick();
+    // 第一次點「確認答案」→ 先判分；已判分才進下一題
+    if (!submitted) {
+      handleSubmit();
+      return;
+    }
     if (qIndex + 1 < total) {
       setQIndex((i) => i + 1);
       setSelected(null);

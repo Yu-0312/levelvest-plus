@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Sparkles, X, Heart } from 'lucide-react';
+import { BookOpen, X, Heart } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 interface WisdomModalProps {

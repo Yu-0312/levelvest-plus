@@ -123,7 +123,7 @@ flowchart TD
 
 ## 🚀 本地執行
 
-**需求**：Node.js 18+
+**需求**：Node.js 20.19+ 或 22.12+（Vite 8 要求）
 
 ```bash
 git clone https://github.com/Yu-0312/levelvest-plus.git
@@ -159,10 +159,12 @@ npm run check        # 型別檢查 + 建置一次跑完（與 CI 相同流程�
 
 | 面向 | 做了什麼 |
 | :--- | :--- |
-| **CI / CD** | 新增 `.github/workflows/ci.yml`：每次 push／PR 自動跑 `tsc --noEmit` + `vite build`；Pages 部署改用 `npm ci`（鎖檔安裝，可重複建置） |
-| **依賴清理** | 移除從未被引用的 `express`、`dotenv`、`esbuild`、`tsx`、`autoprefixer`、`@types/express`，並解決 peer dependency 衝突——`npm install` 不再需要 `--legacy-peer-deps` |
-| **效能** | 起跑測驗、關卡播放器、排行榜、決策日記、設定改為動態 chunk（React.lazy + Suspense），主 chunk 由 518 kB 降至 473 kB（gzip 166 → 155 kB），confetti／動畫模組延後載入 |
+| **CI / CD** | `.github/workflows/ci.yml`：每次 push／PR 自動跑 `tsc --noEmit` + `vite build`；Pages 部署用 `npm ci`（鎖檔安裝，可重複建置） |
+| **依賴清理** | 移除從未被引用的 `express`、`dotenv`、`esbuild`、`tsx`、`autoprefixer`、`@types/express`，並解決 peer dependency 衝突——`npm install` 不再需要 `--legacy-peer-deps`；建置工具歸位 `devDependencies` |
+| **型別安全** | `tsconfig` 啟用 `strict` + `noUnusedLocals`/`noUnusedParameters`/`noFallthroughCasesInSwitch`，清掉 18 處未使用變數——`npm run lint` 在嚴格模式下零錯誤 |
+| **效能** | 起跑測驗、關卡播放器、排行榜、決策日記、AI 導師、時事挑戰、分享卡、設定改為動態 chunk（React.lazy + Suspense），主 chunk 由 518 kB 降至 134 kB（gzip 166 → 47 kB） |
 | **穩定度** | 讀檔改為逐欄校正與兜底（舊檔／損毀檔不再白屏）；每日任務跨日自動歸零；補血彈窗、章節解鎖改用 effect 與純更新函式（消除 StrictMode 重複執行的副作用）；一次過關跨多級時改用迴圈結算升級 |
+| **Bug 修復** | 星星評級 0 星分支（原本 4 次以上答錯仍給 1 星）；時事挑戰「確認答案」漏接判分（錯題從未入帳）；錯題複習選題先排序再打亂（權重排序失效）；移除無功能的「凍結天數」死代碼 |
 | **無障礙** | 全域 `:focus-visible` 焦點框、`prefers-reduced-motion` 減少動態、彈窗補上 `role="dialog"`/`aria-modal`、圖示按鈕補 `aria-label`／`aria-pressed`、分頁加 `aria-current` |
 | **分享與安裝** | 補上 favicon、`og:image`／`twitter:card`（1200×630 分享圖）、theme-color 與 `site.webmanifest`（App icon／名稱／主題色） |
 
@@ -183,6 +185,23 @@ npm run check        # 型別檢查 + 建置一次跑完（與 CI 相同流程�
 
 <br />
 
+## 🤖 AI 應用設計
+
+| 功能 | 位置 | 做法 |
+| :--- | :---: | :--- |
+| **AI 對話導師** | `src/components/AITutor.tsx` | 答錯後可追问：以 system instruction 約束「繁體中文、≤150 字、只講觀念不報牌」，多輪對話附帶課程脈絡（章節＋題目），對話紀錄存 localStorage 可回顧 |
+| **每週時事挑戰** | `src/components/WeeklyNewsChallenge.tsx` | Gemini 依每週時事生成 3–5 題情境選擇題（`responseMimeType: application/json`），程式端做 schema 驗證（選項數、答案範圍、解析字數），不合格即丟棄重試 |
+
+**健檢與降級策略（兩功能共用同一套）：**
+
+1. 未設定 API 金鑰 → 進入「離線示範模式」，UI 明確標示示範題組／示範解析，不冒充 AI 輸出。
+2. 請求設 25 秒逾時保護；任何失敗（網路、配額、JSON 不符 schema）一律靜默降級到示範內容，不會讓使用者卡在 loading 或白屏。
+3. 金鑰只在前端請求時讀取（`VITE_GEMINI_API_KEY`），未寫死於 repo；正式部署若要上真實 AI，建議加一層自己的後端 proxy 保管金鑰。
+
+> **合規**：本專案 AI 能力僅使用 Google Gemini（`@google/genai`），未使用任何來自中國或中資的開源模型與介接工具。
+
+<br />
+
 ## 📁 專案結構
 
 ```
@@ -193,20 +212,31 @@ levelvest-plus/
 ├── src/
 │   ├── components/
 │   │   ├── SkillTree.tsx        # 學習地圖（跳關氣泡、跳級按鈕也在這）
-│   │   ├── LessonPlayer.tsx     # 關卡播放器（筆記 → 測驗 → 結算）
+│   │   ├── LessonPlayer.tsx     # 關卡播放器（筆記 → 測驗 → 結算 → AI 導師入口）
+│   │   ├── AITutor.tsx          # AI 對話導師（Gemini 多輪對話 + 離線示範模式）
+│   │   ├── WeeklyNewsChallenge.tsx # 每週時事挑戰（Gemini 出題 + 示範題組 fallback）
+│   │   ├── PaperTrading.tsx     # 模擬投組（決定論式行情、停損警示、下單紀律）
+│   │   ├── LearningDashboard.tsx # 學習成效儀表板（完成率、弱點分析、機構視角）
+│   │   ├── ShareCard.tsx        # 學習證明分享卡（canvas 產 PNG）
+│   │   ├── HeartReviewQuiz.tsx  # 愛心歸零 → 錯題複習回血
 │   │   ├── SkipGradeModal.tsx   # 跳級確認彈窗
 │   │   ├── OnboardingSurvey.tsx # 起跑前測驗
 │   │   ├── Leaderboard.tsx      # 社群聯賽
 │   │   ├── TradeJournal.tsx     # 決策日記
 │   │   ├── HeartRefillModal.tsx # 補血彈窗（寶石 / 蒙格心法）
-│   │   └── …                    # Header、Mascot、DailyTasks、WisdomModal
+│   │   ├── SideDrawer.tsx       # 時事挑戰右側滑出抽屜
+│   │   └── …                    # Header、Mascot、DailyTasks、WisdomModal、SettingsModal
 │   ├── data/
+│   │   ├── curriculum.ts        # 合併 Part1/Part2 + findLesson
 │   │   ├── curriculumPart1.ts   # S1–S5 課程資料
 │   │   ├── curriculumPart2.ts   # S6–S10 課程資料
+│   │   ├── unitMascots.ts       # 各章吉祥物台詞
 │   │   └── mockData.ts          # 排行榜 / 徽章 / 任務初始資料
-│   ├── utils/audio.ts           # Web Audio 音效合成
+│   ├── utils/
+│   │   ├── audio.ts             # Web Audio 音效合成
+│   │   └── date.ts              # 在地日曆日 / ISO 週工具
 │   ├── types.ts                 # TypeScript 型別定義
-│   ├── App.tsx                  # 主應用（4 個分頁 + 存檔／跳關／跳級邏輯）
+│   ├── App.tsx                  # 主應用（6 個分頁 + 存檔／跳關／跳級邏輯）
 │   └── index.css
 ├── docs/                        # README 截圖與 QA 素材
 ├── public/

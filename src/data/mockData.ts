@@ -49,12 +49,11 @@ export const badgesData: BehavioralBadge[] = [
   { id: 'badge-5', icon: '💎', name: '百發百中學者', description: '連續 5 個微課程測驗皆一次滿分通關', unlocked: false, progress: 0, maxProgress: 5, tag: '學霸獎章' },
   { id: 'badge-6', icon: '🔥', name: '心魔獵人', description: '通過 S6 投資心理修煉場 BOSS「心魔試煉」', unlocked: false, progress: 0, maxProgress: 1, tag: '心理戰' },
   { id: 'badge-7', icon: '🎓', name: 'LevelVest 大師', description: '通過大師認證考並完成個人投資計畫書', unlocked: false, progress: 0, maxProgress: 1, tag: '畢業' },
-  { id: 'badge-8', icon: '📅', name: '紀律日連勝', description: '連續 7 天完成三項今日任務', unlocked: false, progress: 0, maxProgress: 7, tag: '習慣' },
+  { id: 'badge-8', icon: '📅', name: '紀律日連勝', description: '連續 7 天完成四項今日任務', unlocked: false, progress: 0, maxProgress: 7, tag: '習慣' },
 ];
 
 export const initialDaily: DailyState = {
   date: localDateKey(),
-  freezeDays: 1,
   tasks: [
     { id: 'd1', label: '完成 2 堂課', done: 0, target: 2 },
     { id: 'd2', label: '答對 1 題計算或數據題', done: 0, target: 1 },

@@ -1,14 +1,9 @@
 import React, { useState } from 'react';
 import {
   Shield,
-  Award,
   TrendingUp,
   PlusCircle,
-  Filter,
-  CheckCircle2,
   Calendar,
-  Sparkles,
-  HeartHandshake,
   Tag,
   Smile,
   X,
@@ -38,7 +33,7 @@ export const TradeJournal: React.FC<TradeJournalProps> = ({
   const [strategyTag, setStrategyTag] = useState('20MA月線突破');
   const [rationale, setRationale] = useState('突破 20MA 短線轉強，設定跌破前一日低點為停損防線。');
   const [disciplineFollowed, setDisciplineFollowed] = useState(true);
-  const [emotions, setEmotions] = useState<TradeDecision['emotions']>('冷靜理性');
+  const [emotions] = useState<TradeDecision['emotions']>('冷靜理性');
 
   // Metrics calculation（全部由真實日記資料計算，不再寫死假數字）
   const totalDecisions = decisions.length;

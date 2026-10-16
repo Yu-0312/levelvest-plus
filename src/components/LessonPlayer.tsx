@@ -5,7 +5,6 @@ import {
   X,
   CheckCircle2,
   XCircle,
-  ChevronRight,
   Star,
   Sparkles,
   BookOpen,
@@ -81,7 +80,7 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
   const current = questions[qIndex];
   const total = questions.length;
   const stars =
-    wrongCount === 0 ? 3 : wrongCount <= 1 ? 2 : wrongCount <= 2 ? 1 : 1;
+    wrongCount === 0 ? 3 : wrongCount <= 1 ? 2 : wrongCount <= 2 ? 1 : 0;
 
   const handleSelect = (idx: number) => {
     if (submitted) return;

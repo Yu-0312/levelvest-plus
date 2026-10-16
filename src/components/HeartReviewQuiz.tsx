@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -45,11 +45,12 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/** 選題：錯題優先（依錯誤次數排序），不足再從已解鎖題庫補滿，最後打亂出題順序 */
+/** 選題：錯題優先（依錯誤次數由多到少），不足再從已解鎖題庫補滿，最後打亂出題順序 */
 function pickRound(pool: ReviewQuestion[]): ReviewQuestion[] {
   const missed = pool.filter((q) => q.missCount > 0).sort((a, b) => b.missCount - a.missCount);
   const rest = pool.filter((q) => q.missCount === 0);
-  const picked = shuffle(missed).slice(0, ROUND_SIZE);
+  // 前 ROUND_SIZE 題取錯誤次數最多的（不打亂，保留權重排序的意義）
+  const picked = missed.slice(0, ROUND_SIZE);
   if (picked.length < ROUND_SIZE) {
     picked.push(...shuffle(rest).slice(0, ROUND_SIZE - picked.length));
   }

@@ -147,5 +147,4 @@ export interface DailyTask {
 export interface DailyState {
   date: string;
   tasks: DailyTask[];
-  freezeDays: number;
 }

@@ -3,33 +3,41 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "LevelVest — 遊戲化台股投資學習 App",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Yu-0312/levelvest-plus.git"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit && vite build"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/canvas-confetti": "^1.9.0",
-    "@vitejs/plugin-react": "^6.1.1",
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
-    "react-dom": "^19.0.1",
-    "vite": "^8.3.0"
+    "react-dom": "^19.0.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2"
-  },
-  "description": "LevelVest \u2014 \u904a\u6232\u5316\u53f0\u80a1\u6295\u8cc7\u5b78\u7fd2 App"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
 }
