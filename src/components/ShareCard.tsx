@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Share2, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { sound } from '../utils/audio';
+import { curriculum } from '../data/curriculum';
 import type { BehavioralBadge, LessonProgress, UserStats } from '../types';
 
 /**
@@ -81,6 +82,170 @@ function drawPill(
   return w;
 }
 
+/** 實作能力三維統計（分數皆為 0–100 的整數） */
+interface PracticeStats {
+  /** 題庫內全部實作（type='input'）題數 */
+  totalInput: number;
+  /** 位於「已完成關卡」的 input 題數 */
+  doneInput: number;
+  /** 題庫內全部圖表（type='chart'）題數 */
+  totalChart: number;
+  /** 位於「已完成關卡」的 chart 題數 */
+  doneChart: number;
+  /** 計算力 0–100 */
+  calcScore: number;
+  /** 讀圖力 0–100 */
+  readScore: number;
+  /** 紀律星等 0–100 */
+  disciplineScore: number;
+}
+
+/**
+ * 彙總 curriculum 題庫與玩家進度，算出分享卡的三項實作維度（0–100，四捨五入）：
+ *
+ * 1. 計算力 = 已完成關卡內的 input 題數 ÷ 題庫全部 input 題數 × 100
+ *    （分子只數「所在關卡已完成」的題目，等同實作題完成比例；
+ *      星等加權交由維度 3 承擔；題庫沒有 input 題時給 0）
+ * 2. 讀圖力 = 已完成關卡內的 chart 題數 ÷ 題庫全部 chart 題數 × 100（無 chart 題給 0）
+ * 3. 紀律星等 = 已完成關卡的平均星等 ÷ 3（滿星）× 100（沒有已完成關卡給 0）
+ */
+function computePracticeStats(progress: LessonProgress): PracticeStats {
+  let totalInput = 0;
+  let doneInput = 0;
+  let totalChart = 0;
+  let doneChart = 0;
+  let completedCount = 0;
+  let starSum = 0;
+
+  for (const section of curriculum) {
+    for (const lesson of section.lessons) {
+      const entry = progress[lesson.id];
+      const finished = !!entry?.completed;
+      for (const q of lesson.questions) {
+        if (q.type === 'input') {
+          totalInput += 1;
+          if (finished) doneInput += 1;
+        } else if (q.type === 'chart') {
+          totalChart += 1;
+          if (finished) doneChart += 1;
+        }
+      }
+      if (finished) {
+        completedCount += 1;
+        starSum += entry?.stars ?? 0;
+      }
+    }
+  }
+
+  const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : 0);
+  const discipline =
+    completedCount > 0
+      ? Math.min(100, Math.max(0, Math.round((starSum / completedCount / 3) * 100)))
+      : 0;
+
+  return {
+    totalInput,
+    doneInput,
+    totalChart,
+    doneChart,
+    calcScore: pct(doneInput, totalInput),
+    readScore: pct(doneChart, totalChart),
+    disciplineScore: discipline,
+  };
+}
+
+/** 雷達圖單一維度 */
+interface RadarAxis {
+  label: string;
+  /** 0–100 */
+  score: number;
+}
+
+/**
+ * 在 (cx, cy) 畫半徑 r 的「正三角」雷達圖（三個實作維度）：
+ * 3 層網格三角 + 軸線 + 半透明資料多邊形 + 頂點圓點，
+ * 外圈標維度名稱、內圈標分數（字級 ≥24px，資料線寬 4px、網格 2px，1200×630 上保持清晰）。
+ */
+function drawRadar(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  axes: RadarAxis[]
+) {
+  const n = axes.length;
+  const angleOf = (i: number) => -Math.PI / 2 + (i * Math.PI * 2) / n;
+  const clamped = (s: number) => Math.max(0, Math.min(100, s));
+  const point = (i: number, radius: number) => ({
+    x: cx + radius * Math.cos(angleOf(i)),
+    y: cy + radius * Math.sin(angleOf(i)),
+  });
+  const trace = (radiusOf: (i: number) => number) => {
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const p = point(i, radiusOf(i));
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+  };
+
+  // 網格三角（外 → 內 3 層）
+  [1, 2 / 3, 1 / 3].forEach((k) => {
+    trace(() => r * k);
+    ctx.strokeStyle = k === 1 ? SKY_LINE : SKY_SOFT;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  // 軸線（圓心 → 頂點）
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const p = point(i, r);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.strokeStyle = SKY_LINE;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 資料多邊形：半透明填色 + 深色粗描邊
+  trace((i) => (r * clamped(axes[i].score)) / 100);
+  ctx.fillStyle = 'rgba(14, 165, 233, 0.28)';
+  ctx.fill();
+  ctx.strokeStyle = SKY_DARK;
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // 頂點圓點 + 維度標籤（分數貼頂點、名稱在外圈）
+  ctx.textAlign = 'center';
+  axes.forEach((axis, i) => {
+    const score = clamped(axis.score);
+    const v = point(i, (r * score) / 100);
+    if (score > 0) {
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = WHITE;
+      ctx.fill();
+      ctx.strokeStyle = SKY;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    // 標籤沿頂點的垂直方向位移（上頂點往上、下兩頂點往下），避免斜角超出面板
+    const outer = point(i, r);
+    const dir = Math.sin(angleOf(i)) < 0 ? -1 : 1;
+    ctx.font = `900 26px ${FONT_STACK}`;
+    ctx.fillStyle = SKY_DARK;
+    ctx.fillText(`${Math.round(score)}`, outer.x, outer.y + dir * 28);
+    ctx.font = `700 24px ${FONT_STACK}`;
+    ctx.fillStyle = SLATE_600;
+    ctx.fillText(axis.label, outer.x, outer.y + dir * 58);
+  });
+  ctx.textAlign = 'left';
+}
+
 interface CardData {
   name: string;
   title: string;
@@ -89,11 +254,16 @@ interface CardData {
   stars: number;
   unlockedBadges: number;
   dateLabel: string;
+  practice: PracticeStats;
+}
+
+/** 「已完成／總數」顯示用：題庫尚無此題型時只顯示 0 */
+function countLabel(done: number, total: number): string {
+  return total > 0 ? `${done}/${total}` : '0';
 }
 
 function drawShareCard(ctx: CanvasRenderingContext2D, data: CardData) {
   const L = 80; // 內容左界
-  const CW = 1040; // 內容寬度
 
   // ── 背景 ──
   const bg = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
@@ -126,15 +296,6 @@ function drawShareCard(ctx: CanvasRenderingContext2D, data: CardData) {
   ctx.beginPath();
   ctx.arc(1155, 615, 135, 0, Math.PI * 2);
   ctx.fill();
-
-  // 右下的上升柱狀幾何（象徵穩健成長，避開成績方格與頁尾）
-  const barBottom = 520;
-  const barH = [24, 36, 48, 60];
-  barH.forEach((h, i) => {
-    ctx.fillStyle = `rgba(14, 165, 233, ${0.25 + i * 0.08})`;
-    roundRect(ctx, 1006 + i * 30, barBottom - h, 20, h, 8);
-    ctx.fill();
-  });
 
   // 左下角小圓點矩陣
   ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
@@ -172,10 +333,10 @@ function drawShareCard(ctx: CanvasRenderingContext2D, data: CardData) {
   ctx.fillStyle = SLATE_600;
   ctx.fillText('— 投資紀律訓練營', L + brandW + 22, 103);
 
-  // ── 暱稱 ──
+  // ── 暱稱 ──（右側 x≥860 為雷達面板，名稱最長到 820 留 40px 呼吸）
   ctx.font = `900 60px ${FONT_STACK}`;
   ctx.fillStyle = SLATE_900;
-  ctx.fillText(ellipsize(ctx, data.name, 780), L, 186);
+  ctx.fillText(ellipsize(ctx, data.name, 740), L, 186);
 
   // ── 稱號 + 等級 ──
   const titlePillW = drawPill(
@@ -208,7 +369,8 @@ function drawShareCard(ctx: CanvasRenderingContext2D, data: CardData) {
     { value: `${data.unlockedBadges}`, label: '解鎖徽章' },
     { value: `Lv.${data.level}`, label: '目前等級' },
   ];
-  const boxW = (CW - 3 * 20) / 4;
+  const GW = 750; // 成績方格總寬（右側 x 860–1120 留給實作能力雷達面板）
+  const boxW = (GW - 3 * 20) / 4;
   const boxY = 312;
   const boxH = 136;
   stats.forEach((s, i) => {
@@ -234,14 +396,47 @@ function drawShareCard(ctx: CanvasRenderingContext2D, data: CardData) {
     ctx.textAlign = 'left';
   });
 
-  // ── 進度文案（資料不足時給第一步鼓勵） ──
+  // ── 右側：實作能力雷達面板（計算力／讀圖力／紀律星等，樣式對齊成績方格） ──
+  const panelX = 860;
+  const panelY = 168;
+  const panelW = 260;
+  const panelH = 366;
+  ctx.fillStyle = '#F0F9FF';
+  ctx.strokeStyle = SKY_LINE;
+  ctx.lineWidth = 2;
+  roundRect(ctx, panelX, panelY, panelW, panelH, 24);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.font = `900 28px ${FONT_STACK}`;
+  ctx.fillStyle = SLATE_900;
+  ctx.fillText('實作能力雷達', panelX + panelW / 2, panelY + 36);
+  ctx.textAlign = 'left';
+
+  drawRadar(ctx, panelX + panelW / 2, 395, 88, [
+    { label: '計算力', score: data.practice.calcScore },
+    { label: '讀圖力', score: data.practice.readScore },
+    { label: '紀律星等', score: data.practice.disciplineScore },
+  ]);
+
+  // ── 進度文案（資料不足時給第一步鼓勵；右側避開雷達面板，最長 760px） ──
   const hasProgress = data.completed > 0;
   const message = hasProgress
     ? `${data.name} 已完成 ${data.completed} 個關卡、累積 ${data.stars} 顆星，投資紀律正在養成中！`
     : '剛開始的第一步——完成第一關，就能解鎖你的專屬學習證明！';
   ctx.font = `700 26px ${FONT_STACK}`;
   ctx.fillStyle = hasProgress ? SLATE_600 : SKY_DARK;
-  ctx.fillText(ellipsize(ctx, message, 900), L, 494);
+  ctx.fillText(ellipsize(ctx, message, 760), L, 484);
+
+  // ── 實作題統計行（已完成／總數） ──
+  const practiceLine = `✏️ 實作題 ${countLabel(data.practice.doneInput, data.practice.totalInput)} 題 · 📈 圖表題 ${countLabel(
+    data.practice.doneChart,
+    data.practice.totalChart
+  )} 題`;
+  ctx.font = `700 24px ${FONT_STACK}`;
+  ctx.fillStyle = SKY_DARK;
+  ctx.fillText(ellipsize(ctx, practiceLine, 760), L, 518);
 
   // ── 頁尾：生成日期 + 產品標語 ──
   ctx.font = `600 20px ${FONT_STACK}`;
@@ -259,6 +454,8 @@ async function ensureFontsReady(): Promise<void> {
     await Promise.all([
       document.fonts.load(`900 60px ${FONT_STACK}`, '學習證明完成關卡'),
       document.fonts.load(`700 26px ${FONT_STACK}`, '投資紀律訓練營'),
+      document.fonts.load(`700 24px ${FONT_STACK}`, '實作題圖表題計算力讀圖力紀律星等'),
+      document.fonts.load(`900 26px ${FONT_STACK}`, '100'),
     ]);
     await document.fonts.ready;
   } catch {
@@ -287,6 +484,8 @@ export const ShareCard: React.FC<ShareCardProps> = ({ stats, progress, badges })
   const completed = Object.values(progress).filter((p) => p.completed).length;
   const stars = Object.values(progress).reduce((sum, p) => sum + (p.stars || 0), 0);
   const unlockedBadges = badges.filter((b) => b.unlocked).length;
+  // 實作能力三維（計算力／讀圖力／紀律星等），公式見 computePracticeStats
+  const practice = React.useMemo(() => computePracticeStats(progress), [progress]);
 
   const now = new Date();
   const dateLabel = `中華民國 ${now.getFullYear() - 1911} 年 ${now.getMonth() + 1} 月 ${now.getDate()} 日`;
@@ -322,6 +521,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ stats, progress, badges })
         stars,
         unlockedBadges,
         dateLabel,
+        practice,
       });
       const url = await toBlobUrl(canvas);
       canvasRef.current = canvas;
@@ -335,7 +535,7 @@ export const ShareCard: React.FC<ShareCardProps> = ({ stats, progress, badges })
     } finally {
       setBusy(false);
     }
-  }, [stats.userName, stats.title, stats.level, completed, stars, unlockedBadges, dateLabel]);
+  }, [stats.userName, stats.title, stats.level, completed, stars, unlockedBadges, dateLabel, practice]);
 
   const handleDownload = useCallback(() => {
     sound.playClick();

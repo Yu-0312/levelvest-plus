@@ -78,6 +78,10 @@ const ShareCardLazy = React.lazy(() =>
 const WeeklyNewsChallenge = React.lazy(() =>
   import('./components/WeeklyNewsChallenge').then((m) => ({ default: m.WeeklyNewsChallenge }))
 );
+// 實作題挑戰：限時抽 input/chart 題作答，只在點入口鈕時載入
+const PracticalChallenge = React.lazy(() =>
+  import('./components/PracticalChallenge').then((m) => ({ default: m.PracticalChallenge }))
+);
 
 const LS_KEY = 'levelvest-save-v1';
 /** 其他功能的專屬存檔 key：重置學習進度時必須一併清除，避免資料殘留 */
@@ -86,6 +90,7 @@ const EXTRA_LS_KEYS = [
   'levelvest-dashboard-v1',
   'levelvest-weekly-news-v1',
   'levelvest-ai-tutor-v1',
+  'levelvest-practical-v1',
 ] as const;
 
 interface SaveState {
@@ -214,6 +219,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [isWeeklyDrawerOpen, setIsWeeklyDrawerOpen] = useState(false);
+  const [isPracticalOpen, setIsPracticalOpen] = useState(false);
   /** 地圖上目前關卡離開視線時，顯示「繼續闖關」懸浮按鈕 */
   const [showContinue, setShowContinue] = useState(false);
   /** AI 對話導師：目前帶入的錯題情境（null = 關閉） */
@@ -654,6 +660,7 @@ export default function App() {
         onOpenHeartRefill={() => setIsHeartRefillOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenWeeklyDrawer={() => setIsWeeklyDrawerOpen(true)}
+        onOpenPractical={() => setIsPracticalOpen(true)}
       />
 
       <main className="flex-1 w-full max-w-xl mx-auto flex flex-col">
@@ -946,6 +953,16 @@ export default function App() {
           />
         </Suspense>
       </SideDrawer>
+
+      {/* 實作題挑戰：限時訓練場（Header「實作挑戰」鈕開啟，元件自帶覆蓋層） */}
+      {isPracticalOpen && (
+        <Suspense fallback={null}>
+          <PracticalChallenge
+            onClose={() => setIsPracticalOpen(false)}
+            onReward={handleWeeklyNewsReward}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

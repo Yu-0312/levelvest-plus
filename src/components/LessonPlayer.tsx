@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import {
@@ -16,6 +16,7 @@ import { Mascot } from './Mascot';
 import { StockChart } from './StockChart';
 import type { TutorContext } from './AITutor';
 import { sound } from '../utils/audio';
+import { gradeWork, type GradeResult } from '../utils/grader';
 
 /** 選擇型題（mcq/chart）vs 輸入型題（input） */
 const isInputQ = (q: QuizQuestion): boolean => q.type === 'input';
@@ -81,6 +82,11 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
   const [submitted, setSubmitted] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
+  /** AI 批改結果（只在本題、本次 session 顯示；換題即清除） */
+  const [grade, setGrade] = useState<{ key: string; result: GradeResult } | null>(null);
+  const [grading, setGrading] = useState(false);
+  /** 批改請求序號：換題／重批時作廢進行中的請求，避免舊結果寫進新題 */
+  const gradeSeqRef = useRef(0);
 
   // 進到結算畫面時灑彩帶慶祝（BOSS 加碼）
   useEffect(() => {
@@ -108,6 +114,9 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
     setSubmitted(false);
     setCorrectCount(0);
     setWrongCount(0);
+    setGrade(null);
+    setGrading(false);
+    gradeSeqRef.current += 1;
   }
 
   if (!isOpen || !lesson) return null;
@@ -121,6 +130,35 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
 
   /** 目前這題的作答是否可送出 */
   const canSubmit = inputMode ? inputText.trim().length > 0 : selected !== null;
+
+  /** 目前題目指紋：AI 批改結果只掛在這題上 */
+  const gradeKey = `${lesson.id}#${qIndex}`;
+
+  /** 題目／關卡切換時清掉批改狀態（含作廢進行中的請求） */
+  const resetGrade = () => {
+    gradeSeqRef.current += 1;
+    setGrade(null);
+    setGrading(false);
+  };
+
+  /** ✏️ AI 批改算式：逐步糾正學員的算式；離線/失敗自動降級 */
+  const handleGradeWork = async () => {
+    if (grading || !inputMode) return;
+    sound.playClick();
+    const seq = ++gradeSeqRef.current;
+    const key = gradeKey;
+    setGrading(true);
+    setGrade(null);
+    try {
+      const result = await gradeWork(current, inputText);
+      if (gradeSeqRef.current === seq) setGrade({ key, result });
+    } catch {
+      // gradeWork 內部已降級；此處僅防未預期例外
+      if (gradeSeqRef.current === seq) setGrade(null);
+    } finally {
+      if (gradeSeqRef.current === seq) setGrading(false);
+    }
+  };
 
   const handleSelect = (idx: number) => {
     if (submitted) return;
@@ -154,6 +192,7 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
       setSelected(null);
       setInputText('');
       setSubmitted(false);
+      resetGrade();
     } else {
       sound.playSuccess();
       const xp = lesson.isBoss ? 80 : 25;
@@ -432,6 +471,45 @@ export const LessonPlayer: React.FC<LessonPlayerProps> = ({
                           : '再想一下～'}
                       </p>
                       <p className="text-sm text-slate-700 leading-relaxed">{current.explain}</p>
+
+                      {/* ✏️ AI 批改算式：只在計算輸入題（input）答錯時出現 */}
+                      {inputMode && !isAnswerCorrect(current, inputText) && (
+                        <div className="mt-3 space-y-2">
+                          <button
+                            type="button"
+                            onClick={handleGradeWork}
+                            disabled={grading}
+                            className="w-full py-2.5 rounded-xl border-2 border-amber-300 bg-white hover:bg-amber-50 text-amber-700 font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {grading ? '老師批改中…' : '✏️ AI 批改算式'}
+                          </button>
+
+                          {/* 逐步批改結果：只掛在本題（換題即由 resetGrade 清除） */}
+                          {grade && grade.key === gradeKey && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="rounded-2xl border-2 border-b-4 border-amber-200 bg-amber-50/80 p-3.5"
+                            >
+                              <p className="text-[11px] font-black text-amber-700 mb-2">
+                                {grade.result.offline ? '離線示範解析' : 'AI 逐步批改'}
+                              </p>
+                              <ol className="space-y-2">
+                                {grade.result.steps.map((step, i) => (
+                                  <li key={i} className="flex items-start gap-2">
+                                    <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-amber-400 text-white text-[10px] font-black flex items-center justify-center">
+                                      {i + 1}
+                                    </span>
+                                    <span className="flex-1 text-sm text-slate-700 font-medium leading-relaxed">
+                                      {step}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </motion.div>
+                          )}
+                        </div>
+                      )}
 
                       {submitted &&
                         ((inputMode && !isAnswerCorrect(current, inputText)) ||

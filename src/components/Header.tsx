@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Gem, Heart, Volume2, VolumeX, ShieldCheck, Settings, TrendingUp, Newspaper } from 'lucide-react';
+import { Flame, Gem, Heart, Volume2, VolumeX, ShieldCheck, Settings, TrendingUp, Newspaper, PencilRuler } from 'lucide-react';
 import { UserStats } from '../types';
 import { sound } from '../utils/audio';
 
@@ -10,6 +10,8 @@ interface HeaderProps {
   onOpenSettings: () => void;
   /** 打開右側「每週時事挑戰」抽屜 */
   onOpenWeeklyDrawer: () => void;
+  /** 打開「實作題挑戰」限時訓練場 */
+  onOpenPractical: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHeartRefill,
   onOpenSettings,
   onOpenWeeklyDrawer,
+  onOpenPractical,
 }) => {
   const [showStreakModal, setShowStreakModal] = useState(false);
 
@@ -123,6 +126,21 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Newspaper className="w-4 h-4 text-sky-500" />
               <span className="hidden xs:inline sm:inline">時事挑戰</span>
+            </button>
+
+            {/* 實作題挑戰入口（限時訓練場，固定顯示） */}
+            <button
+              id="practical-drawer-btn"
+              onClick={() => {
+                sound.playClick();
+                onOpenPractical();
+              }}
+              aria-label="開啟實作題挑戰限時訓練場"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 active:translate-y-0.5 transition text-xs sm:text-sm font-extrabold cursor-pointer"
+              title="實作題挑戰（限時訓練場）"
+            >
+              <PencilRuler className="w-4 h-4 text-amber-500" />
+              <span className="hidden xs:inline sm:inline">實作挑戰</span>
             </button>
 
             {/* Sound Toggle */}
