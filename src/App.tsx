@@ -104,10 +104,53 @@ interface SaveState {
   daily: DailyState;
   /** 錯題紀錄：questionKey → 答錯次數（複習時優先出題） */
   missed: Record<string, number>;
+  /** 本週累積 XP（社群聯賽用；week = 該週週一的在地日期） */
+  weekly: WeeklyXp;
+}
+
+interface WeeklyXp {
+  week: string;
+  xp: number;
+}
+
+/** 本週週一（在地日期），社群聯賽以週一 00:00 為一週起點 */
+function weekStartKey(d: Date = new Date()): string {
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+  return localDateKey(monday);
+}
+
+/** 跨週自動歸零；同一週沿用 */
+function normalizeWeekly(saved: Partial<WeeklyXp> | undefined): WeeklyXp {
+  const week = weekStartKey();
+  const xp = Number(saved?.xp);
+  if (!saved || saved.week !== week || !Number.isFinite(xp) || xp < 0) return { week, xp: 0 };
+  return { week, xp };
 }
 
 function today(): string {
   return localDateKey();
+}
+
+function yesterday(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return localDateKey(d);
+}
+
+/** 上一個紀律日早於昨天 → 連勝已中斷，歸零（否則連勝只會增加、永遠不會斷） */
+function normalizeStreak(stats: UserStats): UserStats {
+  const last = stats.lastStreakDate;
+  if (!last || last === today() || last === yesterday()) return stats;
+  return { ...stats, streak: 0 };
+}
+
+/** 連勝中斷時，尚未解鎖的「紀律日連勝」徽章進度跟著歸零 */
+function syncStreakBadge(badges: BehavioralBadge[], streak: number): BehavioralBadge[] {
+  return badges.map((b) =>
+    b.id === 'badge-8' && !b.unlocked
+      ? { ...b, progress: Math.min(b.maxProgress, Math.max(0, streak)) }
+      : b
+  );
 }
 
 /** 每日任務：跨日自動歸零；同一天則沿用進度 */
@@ -137,18 +180,21 @@ function loadSave(): SaveState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<SaveState> | null;
     if (!parsed || typeof parsed !== 'object') return null;
+    const stats = normalizeStreak({ ...initialStats, ...(parsed.stats ?? {}) });
     return {
       onboarded: parsed.onboarded === true,
       profile: parsed.profile ?? null,
-      stats: { ...initialStats, ...(parsed.stats ?? {}) },
+      stats,
       progress: parsed.progress ?? {},
       unlockedSections:
         Array.isArray(parsed.unlockedSections) && parsed.unlockedSections.length > 0
           ? parsed.unlockedSections
           : ['s1'],
       trades: Array.isArray(parsed.trades) ? parsed.trades : initialTradeDecisions,
-      badges:
+      badges: syncStreakBadge(
         Array.isArray(parsed.badges) && parsed.badges.length > 0 ? parsed.badges : badgesData,
+        stats.streak
+      ),
       daily: normalizeDaily(parsed.daily),
       missed:
         parsed.missed && typeof parsed.missed === 'object'
@@ -158,6 +204,7 @@ function loadSave(): SaveState | null {
               )
             )
           : {},
+      weekly: normalizeWeekly(parsed.weekly),
     };
   } catch {
     return null;
@@ -203,7 +250,25 @@ export default function App() {
   const [daily, setDaily] = useState<DailyState>(saved?.daily ?? initialDaily);
   /** 錯題紀錄：questionKey（lessonId#題號）→ 答錯次數 */
   const [missed, setMissed] = useState<Record<string, number>>(saved?.missed ?? {});
-  const [students, setStudents] = useState<LeaderboardStudent[]>(leaderboardStudents);
+  /** 本週 XP：原本只存在記憶體，重新整理就歸零，現在跟主存檔一起保存 */
+  const [weekly, setWeekly] = useState<WeeklyXp>(saved?.weekly ?? normalizeWeekly(undefined));
+  /** 排行榜：班級示範名單＋使用者本人（名字與週 XP 用真實資料） */
+  const students = useMemo<LeaderboardStudent[]>(
+    () =>
+      leaderboardStudents.map((s) =>
+        s.isCurrentUser
+          ? { ...s, name: stats.userName || s.name, weeklyXp: weekly.xp, streak: stats.streak }
+          : s
+      ),
+    [stats.userName, stats.streak, weekly.xp]
+  );
+  const addWeeklyXp = (xp: number) => {
+    if (xp <= 0) return;
+    setWeekly((prev) => {
+      const cur = prev.week === weekStartKey() ? prev : normalizeWeekly(undefined);
+      return { ...cur, xp: cur.xp + xp };
+    });
+  };
 
   const [currentTab, setCurrentTab] = useState<AppTab>('learn');
   const [activeSection, setActiveSection] = useState<Section | null>(null);
@@ -237,8 +302,9 @@ export default function App() {
       badges,
       daily,
       missed,
+      weekly,
     });
-  }, [onboarded, profile, stats, progress, unlockedSections, tradeDecisions, badges, daily, missed]);
+  }, [onboarded, profile, stats, progress, unlockedSections, tradeDecisions, badges, daily, missed, weekly]);
 
   // 音效開關以存檔為準：原先只在手動切換時才套用，重新整理後舊設定會失效
   useEffect(() => {
@@ -251,11 +317,12 @@ export default function App() {
     if (!allDone) return;
     const todayKey = today();
     if (stats.lastStreakDate === todayKey) return;
-    const newStreak = stats.streak + 1;
+    // 昨天也是紀律日才接續連勝，否則從 1 重新起算
+    const newStreak = stats.lastStreakDate === yesterday() ? stats.streak + 1 : 1;
     setStats((prev) => ({ ...prev, streak: newStreak, lastStreakDate: todayKey }));
     setBadges((prev) =>
       prev.map((b) => {
-        if (b.id !== 'badge-8') return b;
+        if (b.id !== 'badge-8' || b.unlocked) return b;
         const progressCount = Math.min(b.maxProgress, newStreak);
         return { ...b, progress: progressCount, unlocked: progressCount >= b.maxProgress };
       })
@@ -362,7 +429,7 @@ export default function App() {
     setDaily({ ...initialDaily, tasks: initialDaily.tasks.map((t) => ({ ...t })) });
     setMissed({});
     setIsReviewOpen(false);
-    setStudents(leaderboardStudents);
+    setWeekly(normalizeWeekly(undefined));
     setCurrentTab('learn');
     setActiveSection(null);
     setActiveLesson(null);
@@ -385,7 +452,8 @@ export default function App() {
   };
 
   const handleCompleteLesson = (lessonId: string, stars: number, xp: number, gems: number) => {
-    const alreadyCompleted = progress[lessonId]?.completed === true;
+    // 以「跳關」標記完成的關卡沒有真正作答過：回頭補課時要照首次通關發獎勵
+    const alreadyCompleted = progress[lessonId]?.completed === true && !progress[lessonId]?.skipped;
     const updated: LessonProgress = {
       ...progress,
       [lessonId]: {
@@ -438,9 +506,7 @@ export default function App() {
     }
 
     // Leaderboard sync
-    setStudents((prev) =>
-      prev.map((s) => (s.isCurrentUser ? { ...s, weeklyXp: s.weeklyXp + rewardXp } : s))
-    );
+    addWeeklyXp(rewardXp);
 
     // 勳章進度：
     // badge-5 百發百中學者＝連續滿分（3 星）通關，失手一次歸零
@@ -449,8 +515,10 @@ export default function App() {
     setBadges((prev) =>
       prev.map((b) => {
         if (b.id === 'badge-5') {
+          // 已解鎖就不再變動（避免解鎖後一次失手進度條掉回 0）
+          if (b.unlocked) return b;
           const nextProgress = stars >= 3 ? Math.min(b.maxProgress, b.progress + 1) : 0;
-          return { ...b, progress: nextProgress, unlocked: nextProgress >= b.maxProgress || b.unlocked };
+          return { ...b, progress: nextProgress, unlocked: nextProgress >= b.maxProgress };
         }
         if (b.id === 'badge-6' && isS6Boss) {
           return { ...b, progress: 1, unlocked: true };
@@ -523,9 +591,7 @@ export default function App() {
         title: newTitle,
       };
     });
-    setStudents((prev) =>
-      prev.map((s) => (s.isCurrentUser ? { ...s, weeklyXp: s.weeklyXp + xp } : s))
-    );
+    addWeeklyXp(xp);
   };
 
   /** 複習一輪結束：發放小額 XP（每題 5 XP） */
@@ -564,8 +630,10 @@ export default function App() {
     setBadges((prev) =>
       prev.map((b) => {
         if (b.id === 'badge-4') return { ...b, progress: 1, unlocked: true };
+        // badge-1 鋼鐵紀律者＝「連續 3 次嚴格遵守停損」：只計停損決策，沒照紀律執行就歸零
         if (b.id === 'badge-1') {
-          const newProgress = Math.min(b.maxProgress, b.progress + 1);
+          if (b.unlocked || decision.action !== '嚴格停損') return b;
+          const newProgress = decision.disciplineFollowed ? Math.min(b.maxProgress, b.progress + 1) : 0;
           return { ...b, progress: newProgress, unlocked: newProgress >= b.maxProgress };
         }
         return b;

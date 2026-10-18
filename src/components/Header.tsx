@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Gem, Heart, Volume2, VolumeX, ShieldCheck, Settings, TrendingUp, Newspaper, PencilRuler } from 'lucide-react';
+import { Flame, Gem, Heart, Volume2, VolumeX, Settings, TrendingUp, Newspaper, PencilRuler } from 'lucide-react';
 import { UserStats } from '../types';
 import { sound } from '../utils/audio';
 
@@ -30,16 +30,16 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       <header
         id="app-header"
-        className="sticky top-0 z-30 w-full bg-white border-b-2 border-slate-200 px-3 py-2.5 sm:px-6 transition-all shadow-sm"
+        className="sticky top-0 z-30 w-full bg-white border-b-2 border-slate-200 px-2 xs:px-3 py-2.5 sm:px-6 transition-all shadow-sm"
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           {/* Left: Brand & User Level */}
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-b from-[#6edd1c] to-[#58CC02] border-b-4 border-[#3e9302] flex items-center justify-center shadow-sm shrink-0">
+              <div role="img" aria-label="LevelVest" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-b from-[#6edd1c] to-[#58CC02] border-b-4 border-[#3e9302] flex items-center justify-center shadow-sm shrink-0">
                 <TrendingUp className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-white" strokeWidth={3} />
               </div>
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-[#58CC02] flex items-center select-none">
+              <span className="hidden sm:flex text-xl sm:text-2xl font-black tracking-tight text-[#58CC02] items-center select-none">
                 Level<span className="text-slate-800">Vest</span>
               </span>
             </div>
@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Right: Gamification Badges */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2">
             {/* Streak Counter Button */}
             <button
               id="streak-button"
@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
               aria-expanded={showStreakModal}
               aria-label={`連續學習 ${stats.streak} 天`}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100/80 active:translate-y-0.5 text-amber-700 font-extrabold text-xs sm:text-sm transition-transform cursor-pointer"
+              className="flex items-center gap-1 sm:gap-1.5 px-1.5 xs:px-2.5 py-1.5 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100/80 active:translate-y-0.5 text-amber-700 font-extrabold text-xs sm:text-sm transition-transform cursor-pointer"
               title="連續學習紀錄"
             >
               <Flame className="w-4 h-4 text-orange-500 fill-orange-500 animate-pulse" />
@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div
               id="gems-display"
               aria-label={`寶石 ${stats.gems} 顆`}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-xl border-2 border-sky-200 bg-sky-50 text-sky-700 font-extrabold text-xs sm:text-sm"
+              className="flex items-center gap-1 sm:gap-1.5 px-1.5 xs:px-2.5 py-1.5 rounded-xl border-2 border-sky-200 bg-sky-50 text-sky-700 font-extrabold text-xs sm:text-sm"
               title="投資寶石"
             >
               <Gem className="w-4 h-4 text-sky-500 fill-sky-500" />
@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onOpenHeartRefill();
               }}
               aria-label={`生命值 ${stats.hearts} 之 ${stats.maxHearts}，點擊補血`}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-xl border-2 active:translate-y-0.5 font-extrabold text-xs sm:text-sm transition-transform cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-1.5 xs:px-2.5 py-1.5 rounded-xl border-2 active:translate-y-0.5 font-extrabold text-xs sm:text-sm transition-transform cursor-pointer ${
                 stats.hearts <= 1
                   ? 'border-red-300 bg-red-50 text-red-600 animate-bounce'
                   : 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100/80'
@@ -121,11 +121,11 @@ export const Header: React.FC<HeaderProps> = ({
                 onOpenWeeklyDrawer();
               }}
               aria-label="打開每週時事挑戰側邊欄"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-xl border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 active:translate-y-0.5 transition text-xs sm:text-sm font-extrabold cursor-pointer"
+              className="flex items-center gap-1 px-1.5 xs:px-2 py-1.5 rounded-xl border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 active:translate-y-0.5 transition text-xs sm:text-sm font-extrabold cursor-pointer"
               title="每週時事挑戰"
             >
               <Newspaper className="w-4 h-4 text-sky-500" />
-              <span className="hidden xs:inline sm:inline">時事挑戰</span>
+              <span className="hidden lg:inline whitespace-nowrap">時事挑戰</span>
             </button>
 
             {/* 實作題挑戰入口（限時訓練場，固定顯示） */}
@@ -136,11 +136,11 @@ export const Header: React.FC<HeaderProps> = ({
                 onOpenPractical();
               }}
               aria-label="開啟實作題挑戰限時訓練場"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 active:translate-y-0.5 transition text-xs sm:text-sm font-extrabold cursor-pointer"
+              className="flex items-center gap-1 px-1.5 xs:px-2 py-1.5 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 active:translate-y-0.5 transition text-xs sm:text-sm font-extrabold cursor-pointer"
               title="實作題挑戰（限時訓練場）"
             >
               <PencilRuler className="w-4 h-4 text-amber-500" />
-              <span className="hidden xs:inline sm:inline">實作挑戰</span>
+              <span className="hidden lg:inline whitespace-nowrap">實作挑戰</span>
             </button>
 
             {/* Sound Toggle */}
@@ -151,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
               aria-pressed={stats.soundEnabled}
               aria-label={stats.soundEnabled ? '關閉音效' : '開啟音效'}
-              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 active:scale-95 transition-transform"
+              className="p-1 xs:p-1.5 rounded-full hover:bg-slate-100 text-slate-500 active:scale-95 transition-transform"
               title={stats.soundEnabled ? '關閉音效' : '開啟音效'}
             >
               {stats.soundEnabled ? (
@@ -168,7 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onOpenSettings();
               }}
               aria-label="設定與重置學習進度"
-              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 active:scale-95 transition-transform"
+              className="p-1 xs:p-1.5 rounded-full hover:bg-slate-100 text-slate-500 active:scale-95 transition-transform"
               title="設定 / 重置進度"
             >
               <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -215,17 +215,9 @@ export const Header: React.FC<HeaderProps> = ({
             <h3 className="text-xl font-black text-slate-800 mb-1">
               🔥 連續學習 {stats.streak} 天！
             </h3>
-            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-              太棒了！持續累積投資敏銳度。每天完成任一微課程挑戰，就能保持連勝火苗！
+            <p className="text-sm text-slate-600 mb-5 leading-relaxed">
+              每天把「今日任務」全部完成，就算一個紀律日。連續天數中斷會重新起算，明天記得回來！
             </p>
-
-            <div className="bg-amber-50 rounded-2xl p-3 border border-amber-200 flex items-center gap-3 text-left mb-5">
-              <ShieldCheck className="w-6 h-6 text-amber-600 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-amber-900">連勝保護罩已啟用</p>
-                <p className="text-[11px] text-amber-700">即使忙碌一天漏卡，火苗也不會熄滅。</p>
-              </div>
-            </div>
 
             <button
               onClick={() => {

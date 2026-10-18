@@ -32,9 +32,14 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ students: initialStude
   // 讚賞動畫狀態：只用 setter 觸發 1.2 秒閃爍，不需要讀取值
   const [, setCheeredStudentId] = useState<string | null>(null);  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // 本週結算倒數：以固定 deadline 計算剩餘時間（不會再出現分鐘歸零跳回 59 的倒流 bug）
-  const [deadline] = useState(() => Date.now() + ((2 * 24 + 14) * 3600 + 32 * 60 + 45) * 1000);
+  // 本週結算倒數：算到下週一 00:00（在地時間）。
+  // 原本是「進頁面當下 + 2 天 14 小時」，每次切回本頁倒數都會重新開始
   const [now, setNow] = useState(() => Date.now());
+  const deadline = useMemo(() => {
+    const d = new Date(now);
+    const daysToMonday = 7 - ((d.getDay() + 6) % 7);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + daysToMonday).getTime();
+  }, [now]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);

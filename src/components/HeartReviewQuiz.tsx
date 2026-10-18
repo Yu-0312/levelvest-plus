@@ -96,7 +96,10 @@ export const HeartReviewQuiz: React.FC<HeartReviewQuizProps> = ({
     }
   }
 
-  const round = useMemo(() => pickRound(pool), [pool, roundIndex]);
+  // 只在開新一輪時抽題：答題時錯題數變動會讓 pool 換新，若跟著重抽，
+  // 答完第 1 題後題目就會被換掉（解析對不上題目、同一題可能重複出現）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const round = useMemo(() => pickRound(pool), [roundIndex]);
 
   if (!isOpen) return null;
 
